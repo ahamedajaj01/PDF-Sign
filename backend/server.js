@@ -13,7 +13,9 @@ const app = express();
 // Enable CORS and JSON body parsing
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS.split(","), // convert string → array
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(",")
+      : ["http://localhost:5173", "http://localhost:3000"], // Fallback for local dev
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
   })
@@ -22,7 +24,13 @@ app.use(
 app.use(express.json({ limit: "10mb" })); // Allow large base64 image uploads
 
 // Connect to MongoDB database
-mongoose.connect(process.env.MONGO_URI).then(() => console.log("MongoDB connected"));
+if (!process.env.MONGO_URI) {
+  console.error("ERROR: MONGO_URI is not defined in environment variables");
+} else {
+  mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("MongoDB connected"))
+    .catch(err => console.error("MongoDB connection error:", err));
+}
 
 // Define audit log schema to track PDF history
 const AuditLog = mongoose.model(
@@ -45,7 +53,11 @@ app.post("/sign-pdf", async (req, res) => {
   const { field, signatureBase64 } = req.body;
 
   // Read original PDF file
-const originalPdf = fs.readFileSync(process.env.PDF_PATH);
+  const pdfPath = process.env.PDF_PATH || "sample.pdf";
+  if (!fs.existsSync(pdfPath)) {
+    return res.status(500).json({ error: `PDF file not found at ${pdfPath}` });
+  }
+  const originalPdf = fs.readFileSync(pdfPath);
 
   // Generate hash of original PDF
   const originalHash = sha256(originalPdf);
@@ -99,6 +111,7 @@ const originalPdf = fs.readFileSync(process.env.PDF_PATH);
 });
 
 // Start backend server
-app.listen(process.env.PORT, () =>
-  console.log("Server running on http://localhost:3001")
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () =>
+  console.log(`Server running on http://localhost:${PORT}`)
 );
