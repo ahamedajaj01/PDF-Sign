@@ -10,14 +10,40 @@ const { PDFDocument } = require("pdf-lib"); // Modify PDF files
 // Create express app
 const app = express();
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  next();
+});
+
 // Enable CORS and JSON body parsing
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.Alloed_origin || "")
+  .split(",")
+  .map(o => o.trim().replace(/\/$/, ""))
+  .filter(o => o !== "");
+
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push("http://localhost:5173", "http://localhost:3000");
+}
+
+console.log("Allowed Origins:", allowedOrigins);
+
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(",")
-      : ["http://localhost:5173", "http://localhost:3000"], // Fallback for local dev
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        callback(null, true);
+      } else {
+        console.log(`CORS Blocked: ${origin}. Allowed: ${allowedOrigins.join(", ")}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
