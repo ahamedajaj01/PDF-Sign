@@ -11,7 +11,14 @@ const { PDFDocument } = require("pdf-lib"); // Modify PDF files
 const app = express();
 
 // Enable CORS and JSON body parsing
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS.split(","), // convert string → array
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+
 app.use(express.json({ limit: "10mb" })); // Allow large base64 image uploads
 
 // Connect to MongoDB database
